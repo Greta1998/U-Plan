@@ -1,0 +1,21 @@
+meta {
+  name: Generate_Schedule
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/schedule/generate
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "userId": "4tHnpqGUfSesaO7dU6NTVSF42Bv1"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

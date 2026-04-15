@@ -1,0 +1,21 @@
+meta {
+  name: start_session
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/study-session/start
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "sessionId": "vWKAGwc8AAZ3Ba2KgM4V"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

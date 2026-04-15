@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UPlan — Student Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['DM Sans', 'sans-serif'],
+          serif: ['Instrument Serif', 'serif'],
+        },
+        colors: {
+          brand: {
+            50:  '#f0f4ff',
+            100: '#dde6ff',
+            200: '#b8cbff',
+            300: '#8aaeff',
+            400: '#6091ff',
+            500: '#3b6ff0',
+            600: '#2d55d6',
+            700: '#2242ae',
+            800: '#1b348c',
+            900: '#122266',
+          },
+          surface: '#f8f9fc',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #f8f9fc; color: #1a1d2e; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 232px; min-height: 100vh; background: #fff; border-right: 1px solid #e8eaf2; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; z-index: 40; transition: transform 0.2s; }
+  .sidebar-logo { padding: 20px 24px 16px; display: flex; align-items: center; gap: 10px; }
+  .logo-mark { width: 30px; height: 30px; background: #3b6ff0; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo-mark svg { width: 16px; height: 16px; fill: #fff; }
+  .logo-text { font-size: 16px; font-weight: 600; color: #1a1d2e; letter-spacing: -0.3px; }
+  .sidebar-section { padding: 8px 12px; font-size: 10px; font-weight: 600; color: #9ba0b0; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin: 1px 8px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 400; color: #5a6080; transition: all 0.15s; text-decoration: none; }
+  .nav-item:hover { background: #f0f4ff; color: #3b6ff0; }
+  .nav-item.active { background: #f0f4ff; color: #3b6ff0; font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: #3b6ff0; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+  .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid #e8eaf2; }
+  .user-pill { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .user-pill:hover { background: #f8f9fc; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: #dde6ff; color: #3b6ff0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .user-info .name { font-size: 13px; font-weight: 500; }
+  .user-info .role { font-size: 11px; color: #9ba0b0; }
+
+  /* ── Layout ── */
+  .app-content { margin-left: 232px; min-height: 100vh; display: flex; flex-direction: column; }
+  .topbar { height: 56px; background: #fff; border-bottom: 1px solid #e8eaf2; display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: #1a1d2e; }
+  .topbar-spacer { flex: 1; }
+  .search-bar { display: flex; align-items: center; background: #f8f9fc; border: 1px solid #e8eaf2; border-radius: 8px; padding: 6px 12px; gap: 8px; font-size: 13px; color: #9ba0b0; cursor: pointer; width: 200px; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #5a6080; transition: background 0.15s; position: relative; }
+  .icon-btn:hover { background: #f0f4ff; color: #3b6ff0; }
+  .notif-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; background: #f04444; border-radius: 50%; border: 1.5px solid #fff; }
+  .page { padding: 28px; flex: 1; display: none; }
+  .page.active-page { display: block; }
+
+  /* ── Cards ── */
+  .card { background: #fff; border: 1px solid #e8eaf2; border-radius: 12px; }
+  .stat-card { padding: 20px; }
+  .stat-label { font-size: 12px; font-weight: 500; color: #9ba0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 600; color: #1a1d2e; line-height: 1; }
+  .stat-sub { font-size: 12px; color: #9ba0b0; margin-top: 4px; }
+  .stat-change { font-size: 12px; margin-top: 4px; }
+  .stat-change.up { color: #16a34a; }
+  .stat-change.down { color: #dc2626; }
+  .stat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+
+  /* ── Badges ── */
+  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+  .badge-pending  { background: #fff3cd; color: #92600a; }
+  .badge-done     { background: #dcfce7; color: #15803d; }
+  .badge-overdue  { background: #fee2e2; color: #b91c1c; }
+  .badge-inprog   { background: #dde6ff; color: #2242ae; }
+  .badge-info     { background: #dde6ff; color: #2242ae; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: #3b6ff0; color: #fff; }
+  .btn-primary:hover { background: #2d55d6; }
+  .btn-outline { background: #fff; color: #3b6ff0; border: 1px solid #b8cbff; }
+  .btn-outline:hover { background: #f0f4ff; }
+  .btn-danger { background: #fee2e2; color: #b91c1c; }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-ghost { background: transparent; color: #5a6080; border: 1px solid #e8eaf2; }
+  .btn-ghost:hover { background: #f8f9fc; }
+
+  /* ── Inputs ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 13px; font-weight: 500; color: #3a3f5c; margin-bottom: 6px; }
+  .form-input { width: 100%; padding: 9px 12px; border: 1px solid #dde0ed; border-radius: 8px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: #1a1d2e; outline: none; transition: border 0.15s; background: #fff; }
+  .form-input:focus { border-color: #3b6ff0; box-shadow: 0 0 0 3px rgba(59,111,240,0.1); }
+  .form-input.error { border-color: #f04444; }
+  .form-error { font-size: 12px; color: #dc2626; margin-top: 4px; }
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ba0b0' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,20,40,0.4); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 20px 60px rgba(15,20,40,0.15); }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-title { font-size: 17px; font-weight: 600; }
+  .close-btn { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #9ba0b0; background: #f8f9fc; border: none; }
+  .close-btn:hover { background: #f0f4ff; color: #3b6ff0; }
+
+  /* ── Notifications ── */
+  .notif-stack { position: fixed; top: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .notif { display: flex; align-items: flex-start; gap: 12px; background: #fff; border: 1px solid #e8eaf2; border-radius: 10px; padding: 12px 14px; max-width: 320px; pointer-events: all; box-shadow: 0 4px 20px rgba(15,20,40,0.1); animation: slideIn 0.25s ease; font-size: 13px; }
+  .notif-icon { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 1px; font-size: 11px; }
+  .notif.success .notif-icon { background: #dcfce7; color: #15803d; }
+  .notif.error   .notif-icon { background: #fee2e2; color: #b91c1c; }
+  .notif.info    .notif-icon { background: #dde6ff; color: #2242ae; }
+  .notif-title { font-weight: 500; color: #1a1d2e; line-height: 1.3; }
+  .notif-msg { font-size: 12px; color: #9ba0b0; margin-top: 2px; }
+  .notif-close { margin-left: auto; cursor: pointer; color: #c0c5d8; padding: 2px; flex-shrink: 0; background: none; border: none; font-size: 14px; }
+  .notif-close:hover { color: #5a6080; }
+  @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ── Login page ── */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f4ff 0%, #fdf0ff 100%); }
+  .login-card { background: #fff; border-radius: 20px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(59,111,240,0.1); border: 1px solid #e8eaf2; }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-title { font-size: 22px; font-weight: 600; color: #1a1d2e; margin-bottom: 4px; }
+  .login-subtitle { font-size: 14px; color: #9ba0b0; margin-bottom: 28px; }
+  .divider { border: none; border-top: 1px solid #e8eaf2; margin: 20px 0; }
+  .alert-box { border-radius: 8px; padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .alert-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .alert-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .input-icon-wrap { position: relative; }
+  .input-icon-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #9ba0b0; }
+  .input-icon-wrap .form-input { padding-left: 36px; }
+
+  /* ── Progress bars ── */
+  .progress-bar { height: 6px; background: #eef0f8; border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; font-weight: 500; color: #9ba0b0; padding: 10px 14px; border-bottom: 1px solid #e8eaf2; text-transform: uppercase; letter-spacing: 0.4px; }
+  td { padding: 13px 14px; font-size: 13.5px; border-bottom: 1px solid #f0f2f8; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+
+  /* ── Course cards ── */
+  .course-card { border-radius: 12px; overflow: hidden; border: 1px solid #e8eaf2; background: #fff; transition: box-shadow 0.2s; }
+  .course-card:hover { box-shadow: 0 4px 20px rgba(59,111,240,0.1); }
+  .course-card-top { height: 80px; display: flex; align-items: flex-end; padding: 14px; }
+  .course-card-body { padding: 14px; }
+  .course-name { font-size: 14px; font-weight: 600; color: #1a1d2e; margin-bottom: 4px; }
+  .course-code { font-size: 12px; color: #9ba0b0; margin-bottom: 10px; }
+
+  /* ── Schedule grid ── */
+  .schedule-grid { display: grid; grid-template-columns: 60px repeat(7, 1fr); border-radius: 10px; overflow: hidden; border: 1px solid #e8eaf2; }
+  .sched-header { background: #fff; font-size: 11px; font-weight: 600; color: #9ba0b0; text-align: center; padding: 10px 4px; border-bottom: 1px solid #e8eaf2; text-transform: uppercase; letter-spacing: 0.4px; }
+  .sched-time { font-size: 11px; color: #c0c5d8; padding: 14px 8px; text-align: right; border-right: 1px solid #e8eaf2; background: #fff; }
+  .sched-cell { background: #fff; padding: 4px; border-left: 1px solid #f0f2f8; border-bottom: 1px solid #f0f2f8; min-height: 48px; }
+  .sched-event { border-radius: 6px; padding: 5px 7px; font-size: 11px; font-weight: 500; line-height: 1.3; }
+
+  /* ── Burnout indicator ── */
+  .burnout-wrap { display: flex; flex-direction: column; align-items: center; padding: 24px; }
+  .burnout-ring { position: relative; width: 120px; height: 120px; }
+  .burnout-ring svg { transform: rotate(-90deg); }
+  .burnout-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .burnout-score { font-size: 28px; font-weight: 600; }
+  .burnout-text { font-size: 11px; color: #9ba0b0; }
+
+  /* Section headings */
+  .page-heading { font-size: 20px; font-weight: 600; color: #1a1d2e; letter-spacing: -0.3px; }
+  .page-sub { font-size: 13px; color: #9ba0b0; margin-top: 2px; }
+  .section-title { font-size: 14px; font-weight: 600; color: #1a1d2e; }
+  .divider-light { border: none; border-top: 1px solid #f0f2f8; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     NOTIFICATION STACK
+════════════════════════════════════════════ -->
+<div class="notif-stack" id="notifStack"></div>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN PAGE (full screen, no sidebar)
+════════════════════════════════════════════ -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div style="display:inline-flex;align-items:center;gap:10px;">
+        <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <span style="font-size:20px;font-weight:600;color:#1a1d2e;letter-spacing:-0.3px;">UPlan
+        </span>
+      </div>
+    </div>
+    <p class="login-title">Welcome back</p>
+    <p class="login-subtitle">Sign in to your student dashboard</p>
+
+    <!-- Error state example -->
+    <div class="alert-box alert-error" id="loginError" style="display:none;">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span>Invalid email or password. Please try again.</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email address</label>
+      <div class="input-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+        <input type="email" class="form-input" id="loginEmail" placeholder="you@university.edu" />
+      </div>
+      <div class="form-error" id="emailErr" style="display:none;">Please enter a valid email address.</div>
+    </div>
+
+    <div class="form-group">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label class="form-label" style="margin:0;">Password</label>
+        <a href="#" style="font-size:12px;color:#3b6ff0;text-decoration:none;" onclick="showNotif('info','Password reset email sent!','Check your inbox.')">Forgot password?</a>
+      </div>
+      <div class="input-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input type="password" class="form-input" id="loginPass" placeholder="••••••••" />
+      </div>
+      <div class="form-error" id="passErr" style="display:none;">Password must be at least 8 characters.</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+      <input type="checkbox" id="remember" style="accent-color:#3b6ff0;width:14px;height:14px;" />
+      <label for="remember" style="font-size:13px;color:#5a6080;cursor:pointer;">Remember me for 30 days</label>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;" onclick="doLogin()">
+      Sign in to dashboard
+    </button>
+
+    <hr class="divider" />
+    <p style="text-align:center;font-size:13px;color:#9ba0b0;">Don't have an account? <a href="#" style="color:#3b6ff0;text-decoration:none;" onclick="showNotif('info','Registration','Contact your institution administrator.')">Create Account</a></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP (sidebar + pages)
+════════════════════════════════════════════ -->
+<div id="mainApp" style="display:none;">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="logo-text">UPlan</span>
+    </div>
+
+    <div class="sidebar-section">Main</div>
+    <a class="nav-item active" id="nav-dashboard" onclick="nav('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item" id="nav-courses" onclick="nav('courses')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Courses
+    </a>
+    <a class="nav-item" id="nav-assignments" onclick="nav('assignments')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Assignments
+      <span class="nav-badge">3</span>
+    </a>
+    <a class="nav-item" id="nav-schedule" onclick="nav('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Schedule
+    </a>
+
+    <div class="sidebar-section">Insights</div>
+    <a class="nav-item" id="nav-analytics" onclick="nav('analytics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-3-6 6"/></svg>
+      Analytics
+    </a>
+    <a class="nav-item" id="nav-notifications" onclick="nav('notifications')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Notifications
+      <span class="nav-badge" style="background:#f04444;">2</span>
+    </a>
+
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="avatar">AJ</div>
+        <div class="user-info">
+          <div class="name">Alex Johnson</div>
+          <div class="role">Year 3 · Computer Sci</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Content area -->
+  <div class="app-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <span class="topbar-title" id="topbarTitle">Dashboard</span>
+      <div class="topbar-spacer"></div>
+      <div class="search-bar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search anything…
+      </div>
+      <div class="icon-btn" onclick="nav('notifications')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+      <div class="avatar" style="cursor:pointer;" onclick="showNotif('info','Profile','Profile settings coming soon.')">AJ</div>
+    </div>
+
+    <!-- ── PAGE: DASHBOARD ── -->
+    <div class="page active-page" id="page-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <div>
+          <h1 class="page-heading">Good morning, Alex 👋</h1>
+          <p class="page-sub">You have 3 assignments due this week.</p>
+        </div>
+        <button class="btn btn-primary" onclick="nav('schedule')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Generate Schedule
+        </button>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+        <div class="card stat-card">
+          <div class="stat-icon" style="background:#f0f4ff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b6ff0" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <div class="stat-label">Planned Hours</div>
+          <div class="stat-value">24<span style="font-size:16px;color:#9ba0b0;">h</span></div>
+          <div class="stat-change up">↑ 4h from last week</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon" style="background:#f0fdf4;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <div class="stat-label">Completed Tasks</div>
+          <div class="stat-value">12</div>
+          <div class="stat-change up">↑ 3 this week</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon" style="background:#fff7ed;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <div class="stat-label">Active Courses</div>
+          <div class="stat-value">5</div>
+          <div class="stat-sub">2 with new material</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon" style="background:#fef2f2;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-3-6 6"/></svg></div>
+          <div class="stat-label">Burnout Risk</div>
+          <div class="stat-value" style="color:#dc2626;">42<span style="font-size:16px;">%</span></div>
+          <div class="stat-change down">↑ 5% from last week</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;">
+        <!-- Upcoming assignments -->
+        <div class="card">
+          <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f2f8;">
+            <span class="section-title">Upcoming Assignments</span>
+            <button class="btn btn-ghost btn-sm" onclick="nav('assignments')">View all</button>
+          </div>
+          <table>
+            <thead><tr><th>Title</th><th>Course</th><th>Due</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:500;">Database Design Report</td><td style="color:#9ba0b0;">CS401</td><td>Apr 2</td><td><span class="badge badge-pending">Pending</span></td></tr>
+              <tr><td style="font-weight:500;">Calculus Problem Set 7</td><td style="color:#9ba0b0;">MATH202</td><td>Apr 4</td><td><span class="badge badge-inprog">In Progress</span></td></tr>
+              <tr><td style="font-weight:500;">Research Proposal Draft</td><td style="color:#9ba0b0;">ENG301</td><td>Apr 7</td><td><span class="badge badge-pending">Pending</span></td></tr>
+              <tr><td style="font-weight:500;">Physics Lab Report</td><td style="color:#9ba0b0;">PHY210</td><td>Mar 30</td><td><span class="badge badge-overdue">Overdue</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Weekly overview -->
+        <div class="card" style="padding:18px;">
+          <div style="margin-bottom:16px;" class="section-title">This Week's Load</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Monday</span><span style="color:#9ba0b0;">4h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:60%;background:#3b6ff0;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Tuesday</span><span style="color:#9ba0b0;">6h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:90%;background:#f04444;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Wednesday</span><span style="color:#9ba0b0;">2h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:30%;background:#3b6ff0;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Thursday</span><span style="color:#9ba0b0;">5h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:75%;background:#f59e0b;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Friday</span><span style="color:#9ba0b0;">3h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:45%;background:#3b6ff0;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:#5a6080;">Weekend</span><span style="color:#9ba0b0;">4h</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;background:#16a34a;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAGE: COURSES ── -->
+    <div class="page" id="page-courses">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <div>
+          <h1 class="page-heading">My Courses</h1>
+          <p class="page-sub">5 enrolled courses this semester</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('addCourseModal').classList.remove('hidden')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Add Course
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+        <div class="course-card">
+          <div class="course-card-top" style="background:linear-gradient(135deg,#3b6ff0,#6091ff);">
+            <span style="font-size:22px;">💻</span>
+          </div>
+          <div class="course-card-body">
+            <div class="course-name">Database Systems</div>
+            <div class="course-code">CS401 · Dr. Kamau</div>
+            <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:65%;background:#3b6ff0;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ba0b0;margin-bottom:10px;"><span>65% complete</span><span>13/20 assignments</span></div>
+            <div style="display:flex;gap:8px;">
+              <span class="badge badge-info">4 Credits</span>
+              <span class="badge badge-done">On Track</span>
+            </div>
+          </div>
+        </div>
+        <div class="course-card">
+          <div class="course-card-top" style="background:linear-gradient(135deg,#7c3aed,#a855f7);">
+            <span style="font-size:22px;">📐</span>
+          </div>
+          <div class="course-card-body">
+            <div class="course-name">Calculus II</div>
+            <div class="course-code">MATH202 · Prof. Uwase</div>
+            <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:40%;background:#7c3aed;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ba0b0;margin-bottom:10px;"><span>40% complete</span><span>8/20 assignments</span></div>
+            <div style="display:flex;gap:8px;">
+              <span class="badge badge-info">3 Credits</span>
+              <span class="badge badge-pending">Needs Work</span>
+            </div>
+          </div>
+        </div>
+        <div class="course-card">
+          <div class="course-card-top" style="background:linear-gradient(135deg,#059669,#34d399);">
+            <span style="font-size:22px;">🧪</span>
+          </div>
+          <div class="course-card-body">
+            <div class="course-name">Physics Lab</div>
+            <div class="course-code">PHY210 · Dr. Mutesi</div>
+            <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:80%;background:#059669;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ba0b0;margin-bottom:10px;"><span>80% complete</span><span>16/20 assignments</span></div>
+            <div style="display:flex;gap:8px;">
+              <span class="badge badge-info">3 Credits</span>
+              <span class="badge badge-done">On Track</span>
+            </div>
+          </div>
+        </div>
+        <div class="course-card">
+          <div class="course-card-top" style="background:linear-gradient(135deg,#dc2626,#f87171);">
+            <span style="font-size:22px;">📝</span>
+          </div>
+          <div class="course-card-body">
+            <div class="course-name">English Composition</div>
+            <div class="course-code">ENG301 · Dr. Ingabire</div>
+            <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:55%;background:#dc2626;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ba0b0;margin-bottom:10px;"><span>55% complete</span><span>11/20 assignments</span></div>
+            <div style="display:flex;gap:8px;">
+              <span class="badge badge-info">2 Credits</span>
+              <span class="badge badge-done">On Track</span>
+            </div>
+          </div>
+        </div>
+        <div class="course-card">
+          <div class="course-card-top" style="background:linear-gradient(135deg,#d97706,#fbbf24);">
+            <span style="font-size:22px;">🌍</span>
+          </div>
+          <div class="course-card-body">
+            <div class="course-name">African History</div>
+            <div class="course-code">HIST110 · Prof. Niyonzima</div>
+            <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:30%;background:#d97706;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ba0b0;margin-bottom:10px;"><span>30% complete</span><span>6/20 assignments</span></div>
+            <div style="display:flex;gap:8px;">
+              <span class="badge badge-info">3 Credits</span>
+              <span class="badge badge-overdue">Behind</span>
+            </div>
+          </div>
+        </div>
+        <!-- Add course placeholder -->
+        <div class="course-card" style="display:flex;align-items:center;justify-content:center;min-height:200px;border-style:dashed;cursor:pointer;background:#fafbff;" onclick="document.getElementById('addCourseModal').classList.remove('hidden')">
+          <div style="text-align:center;color:#9ba0b0;">
+            <div style="font-size:28px;margin-bottom:8px;">+</div>
+            <div style="font-size:13px;font-weight:500;">Add a course</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAGE: ASSIGNMENTS ── -->
+    <div class="page" id="page-assignments">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <div>
+          <h1 class="page-heading">Assignments</h1>
+          <p class="page-sub">Manage and track all your work</p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <select class="form-input form-select btn-ghost" style="width:auto;font-size:13px;padding:7px 32px 7px 12px;cursor:pointer;" onchange="filterAssign(this.value)">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="done">Completed</option>
+            <option value="overdue">Overdue</option>
+          </select>
+          <button class="btn btn-primary" onclick="showNotif('success','Assignment added','Your new assignment has been created.')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Assignment
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <table id="assignTable">
+          <thead><tr><th style="width:32px;"></th><th>Assignment</th><th>Course</th><th>Due Date</th><th>Priority</th><th>Status</th><th style="width:80px;">Actions</th></tr></thead>
+          <tbody>
+            <tr data-status="overdue"><td><input type="checkbox" style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;">Physics Lab Report</td><td style="color:#9ba0b0;font-size:13px;">PHY210</td><td style="color:#dc2626;font-size:13px;">Mar 30</td><td><span class="badge badge-overdue">High</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>Overdue</option><option>Pending</option><option>In Progress</option><option>Completed</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr data-status="pending"><td><input type="checkbox" style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;">Database Design Report</td><td style="color:#9ba0b0;font-size:13px;">CS401</td><td style="font-size:13px;">Apr 2</td><td><span class="badge badge-overdue">High</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>Pending</option><option>In Progress</option><option>Completed</option><option>Overdue</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr data-status="inprog"><td><input type="checkbox" style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;">Calculus Problem Set 7</td><td style="color:#9ba0b0;font-size:13px;">MATH202</td><td style="font-size:13px;">Apr 4</td><td><span class="badge badge-pending">Medium</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>In Progress</option><option>Pending</option><option>Completed</option><option>Overdue</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr data-status="pending"><td><input type="checkbox" style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;">Research Proposal Draft</td><td style="color:#9ba0b0;font-size:13px;">ENG301</td><td style="font-size:13px;">Apr 7</td><td><span class="badge badge-pending">Medium</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>Pending</option><option>In Progress</option><option>Completed</option><option>Overdue</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr data-status="done"><td><input type="checkbox" checked style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;text-decoration:line-through;color:#9ba0b0;">History Essay – WWI</td><td style="color:#9ba0b0;font-size:13px;">HIST110</td><td style="font-size:13px;">Mar 25</td><td><span style="background:#f0f2f8;color:#9ba0b0;" class="badge">Low</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>Completed</option><option>Pending</option><option>In Progress</option><option>Overdue</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr data-status="done"><td><input type="checkbox" checked style="accent-color:#3b6ff0;"/></td><td style="font-weight:500;text-decoration:line-through;color:#9ba0b0;">CS201 Midterm Prep</td><td style="color:#9ba0b0;font-size:13px;">CS401</td><td style="font-size:13px;">Mar 20</td><td><span style="background:#f0f2f8;color:#9ba0b0;" class="badge">Low</span></td><td><select class="form-input form-select" style="width:130px;font-size:12px;padding:4px 28px 4px 8px;" onchange="handleStatusChange(this)"><option>Completed</option><option>Pending</option><option>In Progress</option><option>Overdue</option></select></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PAGE: SCHEDULE ── -->
+    <div class="page" id="page-schedule">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <div>
+          <h1 class="page-heading">Weekly Schedule</h1>
+          <p class="page-sub">Week of March 31 – April 6, 2025</p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-outline" onclick="showNotif('info','Export','Schedule exported as PDF.')">
+            Export PDF
+          </button>
+          <button class="btn btn-primary" onclick="generateSchedule()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Generate Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Day pills -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;">
+        <div style="text-align:center;background:#3b6ff0;color:#fff;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;opacity:0.8;">MON</div>
+          <div style="font-size:18px;font-weight:600;">31</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">TUE</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">1</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">WED</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">2</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">THU</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">3</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">FRI</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">4</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">SAT</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">5</div>
+        </div>
+        <div style="text-align:center;background:#fff;border:1px solid #e8eaf2;padding:10px 16px;border-radius:10px;flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#9ba0b0;">SUN</div>
+          <div style="font-size:18px;font-weight:600;color:#1a1d2e;">6</div>
+        </div>
+      </div>
+
+      <!-- Time blocks -->
+      <div class="card" style="overflow:hidden;">
+        <div style="display:grid;grid-template-columns:70px repeat(5,1fr);border-bottom:1px solid #e8eaf2;">
+          <div style="padding:10px;border-right:1px solid #e8eaf2;"></div>
+          <div class="sched-header">Monday</div>
+          <div class="sched-header">Tuesday</div>
+          <div class="sched-header">Wednesday</div>
+          <div class="sched-header">Thursday</div>
+          <div class="sched-header">Friday</div>
+        </div>
+        <!-- time slots -->
+        <div style="display:grid;grid-template-columns:70px repeat(5,1fr);">
+          <div class="sched-time" style="border-bottom:1px solid #f0f2f8;">08:00</div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dde6ff;color:#2242ae;">CS401 Lecture</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dde6ff;color:#2242ae;">CS401 Lecture</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dde6ff;color:#2242ae;">CS401 Lecture</div></div>
+
+          <div class="sched-time" style="border-bottom:1px solid #f0f2f8;">09:00</div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#ede9fe;color:#5b21b6;">MATH202</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#ede9fe;color:#5b21b6;">MATH202</div></div>
+          <div class="sched-cell"></div>
+
+          <div class="sched-time" style="border-bottom:1px solid #f0f2f8;">10:00</div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dcfce7;color:#15803d;">Study Block</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dcfce7;color:#15803d;">Study Block</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"></div>
+
+          <div class="sched-time" style="border-bottom:1px solid #f0f2f8;">11:00</div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#fef3c7;color:#92600a;">PHY210 Lab</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#fef3c7;color:#92600a;">PHY210 Lab</div></div>
+          <div class="sched-cell"></div>
+
+          <div class="sched-time" style="border-bottom:1px solid #f0f2f8;">14:00</div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#fee2e2;color:#b91c1c;">ENG301</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#fee2e2;color:#b91c1c;">ENG301</div></div>
+
+          <div class="sched-time">16:00</div>
+          <div class="sched-cell"><div class="sched-event" style="background:#f1f5f9;color:#475569;">Office Hours</div></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"></div>
+          <div class="sched-cell"><div class="sched-event" style="background:#dcfce7;color:#15803d;">Study Block</div></div>
+          <div class="sched-cell"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAGE: ANALYTICS ── -->
+    <div class="page" id="page-analytics">
+      <div style="margin-bottom:24px;">
+        <h1 class="page-heading">Analytics</h1>
+        <p class="page-sub">Your academic performance overview</p>
+      </div>
+
+      <!-- Stat row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+        <div class="card stat-card">
+          <div class="stat-label">Study Hours / Week</div>
+          <div class="stat-value">24h</div>
+          <div class="stat-change up">↑ 4h this week</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Task Completion</div>
+          <div class="stat-value" style="color:#16a34a;">78%</div>
+          <div class="stat-change up">↑ 5% from last week</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Burnout Level</div>
+          <div class="stat-value" style="color:#f59e0b;">Moderate</div>
+          <div class="stat-sub" style="color:#f59e0b;">42% risk score</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <!-- Burnout ring -->
+        <div class="card" style="padding:20px;">
+          <div class="section-title" style="margin-bottom:16px;">Burnout Indicator</div>
+          <div style="display:flex;align-items:center;gap:24px;">
+            <div class="burnout-wrap" style="padding:0;">
+              <div class="burnout-ring">
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f0f2f8" stroke-width="10"/>
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f59e0b" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="183" stroke-linecap="round"/>
+                </svg>
+                <div class="burnout-label">
+                  <span class="burnout-score" style="color:#f59e0b;">42</span>
+                  <span class="burnout-text">/ 100</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span style="color:#5a6080;">Workload</span><span style="color:#f59e0b;font-weight:500;">High</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:75%;background:#f59e0b;"></div></div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span style="color:#5a6080;">Sleep quality</span><span style="color:#16a34a;font-weight:500;">Good</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:70%;background:#16a34a;"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span style="color:#5a6080;">Stress level</span><span style="color:#f59e0b;font-weight:500;">Moderate</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:45%;background:#f59e0b;"></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#92600a;">
+            ⚠️ Your workload is high this week. Consider rescheduling lower-priority tasks.
+          </div>
+        </div>
+
+        <!-- Course performance -->
+        <div class="card" style="padding:20px;">
+          <div class="section-title" style="margin-bottom:16px;">Course Performance</div>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="font-weight:500;">Database Systems</span><span style="color:#3b6ff0;font-weight:500;">88%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:88%;background:#3b6ff0;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="font-weight:500;">Calculus II</span><span style="color:#f59e0b;font-weight:500;">76%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:76%;background:#f59e0b;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="font-weight:500;">Physics Lab</span><span style="color:#16a34a;font-weight:500;">92%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:92%;background:#16a34a;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="font-weight:500;">English Composition</span><span style="color:#3b6ff0;font-weight:500;">82%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:82%;background:#3b6ff0;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="font-weight:500;">African History</span><span style="color:#dc2626;font-weight:500;">64%</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:64%;background:#dc2626;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAGE: NOTIFICATIONS ── -->
+    <div class="page" id="page-notifications">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <div>
+          <h1 class="page-heading">Notifications</h1>
+          <p class="page-sub">Stay up to date with alerts and updates</p>
+        </div>
+        <button class="btn btn-ghost" onclick="showNotif('success','All cleared','Marked all notifications as read.')">Mark all as read</button>
+      </div>
+
+      <!-- Live demo buttons -->
+      <div class="card" style="padding:20px;margin-bottom:20px;">
+        <div class="section-title" style="margin-bottom:12px;">Trigger Demo Notifications</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="showNotif('success','Course added','Database Systems has been added to your schedule.')">
+            ✅ Success
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="showNotif('error','Submission failed','Could not upload your assignment. Please retry.')">
+            ❌ Error Alert
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="showNotif('info','Reminder','Calculus Problem Set due in 2 days.')">
+            ℹ️ Info
+          </button>
+        </div>
+      </div>
+
+      <!-- Notification list -->
+      <div class="card" style="overflow:hidden;">
+        <!-- Unread -->
+        <div style="padding:14px 18px;background:#f8f9fc;border-bottom:1px solid #e8eaf2;font-size:12px;font-weight:600;color:#9ba0b0;letter-spacing:0.5px;text-transform:uppercase;">Unread · 2</div>
+        <div style="padding:16px 18px;display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid #f0f2f8;background:#fafbff;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">⚠️</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#1a1d2e;margin-bottom:3px;">Assignment overdue: Physics Lab Report</div>
+            <div style="font-size:13px;color:#9ba0b0;">Your Physics Lab Report was due on March 30. Please submit immediately to avoid grade penalty.</div>
+            <div style="font-size:12px;color:#c0c5d8;margin-top:6px;">2 hours ago</div>
+          </div>
+          <span class="badge badge-overdue">Urgent</span>
+        </div>
+        <div style="padding:16px 18px;display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid #f0f2f8;background:#fafbff;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#dde6ff;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📅</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#1a1d2e;margin-bottom:3px;">Database Design Report due in 2 days</div>
+            <div style="font-size:13px;color:#9ba0b0;">Don't forget — your CS401 report is due on April 2nd. You haven't started yet.</div>
+            <div style="font-size:12px;color:#c0c5d8;margin-top:6px;">5 hours ago</div>
+          </div>
+          <span class="badge badge-pending">Reminder</span>
+        </div>
+
+        <!-- Read -->
+        <div style="padding:14px 18px;background:#f8f9fc;border-bottom:1px solid #e8eaf2;border-top:1px solid #e8eaf2;font-size:12px;font-weight:600;color:#9ba0b0;letter-spacing:0.5px;text-transform:uppercase;">Earlier</div>
+        <div style="padding:16px 18px;display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid #f0f2f8;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">✅</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#9ba0b0;margin-bottom:3px;">Course added successfully</div>
+            <div style="font-size:13px;color:#c0c5d8;">African History (HIST110) has been added to your schedule.</div>
+            <div style="font-size:12px;color:#c0c5d8;margin-top:6px;">Yesterday</div>
+          </div>
+          <span class="badge badge-done">Success</span>
+        </div>
+        <div style="padding:16px 18px;display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid #f0f2f8;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📊</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#9ba0b0;margin-bottom:3px;">Weekly report ready</div>
+            <div style="font-size:13px;color:#c0c5d8;">Your study analytics for March 25–31 are now available.</div>
+            <div style="font-size:12px;color:#c0c5d8;margin-top:6px;">2 days ago</div>
+          </div>
+          <span class="badge badge-info">Report</span>
+        </div>
+        <div style="padding:16px 18px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🎓</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#9ba0b0;margin-bottom:3px;">Midterm grades published</div>
+            <div style="font-size:13px;color:#c0c5d8;">Physics Lab midterm results are now visible in your gradebook.</div>
+            <div style="font-size:12px;color:#c0c5d8;margin-top:6px;">3 days ago</div>
+          </div>
+          <span class="badge badge-info">Grade</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end app-content -->
+</div><!-- end mainApp -->
+
+<!-- ═══════════════════════════════════════════
+     ADD COURSE MODAL
+════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="addCourseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add New Course</span>
+      <button class="close-btn" onclick="document.getElementById('addCourseModal').classList.add('hidden')">✕</button>
+    </div>
+
+    <div class="alert-box alert-success" id="courseSuccess" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+      Course added successfully!
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Course Name *</label>
+      <input type="text" class="form-input" id="courseName" placeholder="e.g. Introduction to AI" />
+      <div class="form-error" id="courseNameErr" style="display:none;">Course name is required.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Course Code *</label>
+        <input type="text" class="form-input" placeholder="e.g. CS501" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Credits</label>
+        <select class="form-input form-select">
+          <option>1</option><option>2</option><option selected>3</option><option>4</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Instructor</label>
+      <input type="text" class="form-input" placeholder="Dr. / Prof. Name" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Schedule Days</label>
+        <select class="form-input form-select">
+          <option>Mon / Wed / Fri</option>
+          <option>Tue / Thu</option>
+          <option>Daily</option>
+          <option>Custom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Color</label>
+        <div style="display:flex;gap:8px;padding-top:6px;">
+          <div style="width:22px;height:22px;background:#3b6ff0;border-radius:50%;cursor:pointer;border:2px solid #3b6ff0;"></div>
+          <div style="width:22px;height:22px;background:#7c3aed;border-radius:50%;cursor:pointer;"></div>
+          <div style="width:22px;height:22px;background:#059669;border-radius:50%;cursor:pointer;"></div>
+          <div style="width:22px;height:22px;background:#dc2626;border-radius:50%;cursor:pointer;"></div>
+          <div style="width:22px;height:22px;background:#d97706;border-radius:50%;cursor:pointer;"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('addCourseModal').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-primary" onclick="addCourse()">Add Course</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Navigation ──
+  function nav(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active-page');
+    const navEl = document.getElementById('nav-' + page);
+    if (navEl) navEl.classList.add('active');
+    const titles = { dashboard:'Dashboard', courses:'Courses', assignments:'Assignments', schedule:'Schedule', analytics:'Analytics', notifications:'Notifications' };
+    document.getElementById('topbarTitle').textContent = titles[page] || page;
+  }
+
+  // ── Login ──
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPass').value;
+    let valid = true;
+    document.getElementById('emailErr').style.display = 'none';
+    document.getElementById('passErr').style.display  = 'none';
+    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('loginEmail').classList.remove('error');
+    document.getElementById('loginPass').classList.remove('error');
+
+    if (!email || !email.includes('@')) {
+      document.getElementById('emailErr').style.display = 'block';
+      document.getElementById('loginEmail').classList.add('error');
+      valid = false;
+    }
+    if (pass.length < 1) {
+      document.getElementById('passErr').style.display = 'block';
+      document.getElementById('loginPass').classList.add('error');
+      valid = false;
+    }
+    if (!valid) return;
+
+    if (email !== 'alex@university.edu' || pass !== 'password') {
+      document.getElementById('loginError').style.display = 'flex';
+      return;
+    }
+    // Success
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    setTimeout(() => showNotif('success', 'Welcome back, Alex!', 'You have 2 unread notifications.'), 400);
+  }
+
+  // ── Notifications toast ──
+  function showNotif(type, title, msg) {
+    const stack = document.getElementById('notifStack');
+    const icons = { success:'✓', error:'✕', info:'i' };
+    const n = document.createElement('div');
+    n.className = 'notif ' + type;
+    n.innerHTML = `<div class="notif-icon">${icons[type]||'i'}</div><div><div class="notif-title">${title}</div>${msg?`<div class="notif-msg">${msg}</div>`:''}</div><button class="notif-close" onclick="this.parentElement.remove()">✕</button>`;
+    stack.appendChild(n);
+    setTimeout(() => { if(n.parentElement) n.remove(); }, 4000);
+  }
+
+  // ── Course add validation ──
+  function addCourse() {
+    const name = document.getElementById('courseName').value.trim();
+    document.getElementById('courseNameErr').style.display = 'none';
+    document.getElementById('courseName').classList.remove('error');
+    if (!name) {
+      document.getElementById('courseNameErr').style.display = 'block';
+      document.getElementById('courseName').classList.add('error');
+      return;
+    }
+    document.getElementById('courseSuccess').style.display = 'flex';
+    showNotif('success', 'Course added', name + ' has been added to your courses.');
+    setTimeout(() => {
+      document.getElementById('addCourseModal').classList.add('hidden');
+      document.getElementById('courseSuccess').style.display = 'none';
+      document.getElementById('courseName').value = '';
+    }, 1500);
+  }
+
+  // ── Assignment status change ──
+  function handleStatusChange(sel) {
+    const status = sel.value.toLowerCase().replace(' ', '');
+    showNotif('success', 'Status updated', 'Assignment marked as ' + sel.value + '.');
+  }
+
+  // ── Filter assignments ──
+  function filterAssign(val) {
+    document.querySelectorAll('#assignTable tbody tr').forEach(row => {
+      const s = row.dataset.status;
+      if (val === 'all' || s === val || (val==='done' && s==='done') || (val==='pending' && (s==='pending'||s==='inprog'))) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // ── Generate schedule ──
+  function generateSchedule() {
+    showNotif('info', 'Generating schedule…', 'AI is optimising your week based on deadlines.');
+    setTimeout(() => showNotif('success', 'Schedule ready', 'Your optimised schedule has been applied.'), 2000);
+  }
+
+  // Allow Enter key on login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('loginPage').style.display !== 'none') doLogin();
+  });
+</script>
+</body>
+</html>

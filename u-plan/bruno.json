@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "u-plan",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

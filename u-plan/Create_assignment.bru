@@ -1,0 +1,26 @@
+meta {
+  name: Create_assignment
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/assignments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "courseId": "4uIY7KT28OqJvIooNaGD",
+    "title": "Project Proposal",
+    "deadline": "2026-05-05",
+    "priority": "low",
+    "status": "pending"
+  }
+  
+}
+
+settings {
+  encodeUrl: true
+}

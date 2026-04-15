@@ -1,0 +1,23 @@
+meta {
+  name: Create_course
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/courses
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "userId": "4tHnpqGUfSesaO7dU6NTVSF42Bv1",
+    "courseName": "Mid Term Project",
+    "creditUnits": 3
+  }
+}
+
+settings {
+  encodeUrl: true
+}
