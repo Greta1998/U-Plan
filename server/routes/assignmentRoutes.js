@@ -4,6 +4,6 @@ const assignmentController = require("../controllers/assignmentController");
 
 router.post("/", assignmentController.createAssignment);
 router.get("/:courseId", assignmentController.getAssignmentsByCourse);
-router.put("/:assignmentId", assignmentController.markAssignmentCompleted);
+router.put("/:assignmentId", assignmentController.updateAssignmentStatus);
 
 module.exports = router;

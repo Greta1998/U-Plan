@@ -1,14 +1,5 @@
 const { getFirebaseAdmin } = require("../config/firebase");
 
-/** Parse Firestore Timestamp, Date, or ISO string to a JS Date. */
-function toDate(value) {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof value.toDate === "function") return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 /** Round to 2 decimal places for API responses. */
 function round2(num) {
   return Math.round(num * 100) / 100;
@@ -20,183 +11,134 @@ function safeDiv(numerator, denominator) {
   return numerator / denominator;
 }
 
-/**
- * Short weekday label from a YYYY-MM-DD date string (UTC noon avoids DST edge cases).
- */
-function weekdayShortFromDateKey(dateStr) {
-  if (!dateStr || typeof dateStr !== "string") return null;
-  const d = new Date(`${dateStr.trim()}T12:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+function normalizeAssignmentStatus(raw) {
+  const s = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (s === "completed") return "completed";
+  if (s === "in_progress") return "in_progress";
+  return "pending";
 }
 
 /**
- * Rule-based burnout + recommendation from performance and behavior signals.
- * Order of checks matters (first match wins).
+ * Workload / progress insight from assignment counts only (no study sessions).
  */
-function evaluateBurnout({
-  totalActualHours,
-  completionRate,
-  consistencyScore,
-  maxDailyHours,
+function evaluateAssignmentInsight({
+  totalAssignments,
+  completedAssignments,
+  pendingAssignments,
+  inProgressAssignments,
 }) {
-  if (totalActualHours > 30 && consistencyScore > 0.8) {
+  if (totalAssignments === 0) {
     return {
-      burnoutLevel: "HIGH",
-      reason: "Overworking",
-      recommendation: "Reduce study hours and take rest days",
+      workloadLevel: "LOW",
+      reason: "No assignments yet",
+      recommendation: "Add courses and create assignments to track your work here.",
     };
   }
-  if (completionRate < 0.5) {
+
+  const completionRate = safeDiv(completedAssignments, totalAssignments);
+
+  if (pendingAssignments >= 8 && completionRate < 0.25) {
     return {
-      burnoutLevel: "HIGH",
-      reason: "Falling behind",
-      recommendation: "Focus on completing planned sessions",
+      workloadLevel: "HIGH",
+      reason: "Large pending backlog",
+      recommendation: "Prioritize by due date and tackle one assignment at a time.",
     };
   }
-  if (maxDailyHours > 6) {
+
+  if (completionRate >= 0.75) {
     return {
-      burnoutLevel: "MEDIUM",
-      reason: "Uneven workload",
-      recommendation: "Distribute study sessions more evenly",
+      workloadLevel: "LOW",
+      reason: "Strong completion rate",
+      recommendation: "Keep updating statuses as you finish work.",
     };
   }
-  if (consistencyScore < 0.5) {
+
+  if (inProgressAssignments >= 4 && pendingAssignments >= 3) {
     return {
-      burnoutLevel: "MEDIUM",
-      reason: "Low consistency",
-      recommendation: "Try to follow your schedule consistently",
+      workloadLevel: "MEDIUM",
+      reason: "Many items active at once",
+      recommendation: "Consider finishing in-progress tasks before adding new ones.",
     };
   }
+
+  if (completionRate < 0.35 && pendingAssignments > 0) {
+    return {
+      workloadLevel: "HIGH",
+      reason: "Most work still open",
+      recommendation: "Break large assignments into steps and mark progress in Assignments.",
+    };
+  }
+
   return {
-    burnoutLevel: "LOW",
-    reason: "Healthy study pattern",
-    recommendation: "Maintain your current study habits",
+    workloadLevel: "MEDIUM",
+    reason: "Steady workload",
+    recommendation: "Use the Assignments page to keep statuses up to date.",
   };
 }
 
 /**
- * Aggregates studySessions for a user: planned vs actual (break-excluded actualDuration),
- * session counts, daily load, break/focus behavior, and burnout snapshot.
+ * Dashboard analytics: courses + assignments only (completed / pending / in progress).
  */
 async function getAnalyticsSummary(userId) {
   const admin = getFirebaseAdmin();
   const db = admin.firestore();
-  const sessionsSnap = await db.collection("studySessions").where("userId", "==", userId).get();
+  const coursesSnap = await db.collection("courses").where("userId", "==", userId).get();
+  const courseCount = coursesSnap.size;
+  const courseIds = coursesSnap.docs.map((doc) => doc.id);
 
-  if (sessionsSnap.empty) {
+  if (courseIds.length === 0) {
     return {
-      totalPlannedHours: 0,
-      totalActualHours: 0,
-      completionRate: 0,
-      totalSessions: 0,
-      completedSessions: 0,
-      missedSessions: 0,
-      consistencyScore: 0,
-      avgSessionLength: 0,
-      avgBreakTime: 0,
-      focusScore: 0,
-      dailyLoadByWeekday: {},
-      maxDailyHours: 0,
-      minDailyHours: 0,
-      burnoutLevel: "LOW",
-      reason: "No sessions recorded",
-      recommendation: "Add or complete study sessions to see insights",
+      courseCount: 0,
+      totalAssignments: 0,
+      completedAssignments: 0,
+      pendingAssignments: 0,
+      inProgressAssignments: 0,
+      assignmentCompletionRate: 0,
+      workloadLevel: "LOW",
+      reason: "No courses yet",
+      recommendation: "Add a course, then create assignments.",
     };
   }
 
-  let totalPlannedHours = 0;
-  let totalActualHours = 0;
-  let totalSessions = 0;
-  let completedSessions = 0;
-  /** Sum of totalBreakTime (hours) on completed sessions only — used for avg break + focus. */
-  let sumBreakTimeCompleted = 0;
-  /** Map weekday short label → sum of actual study hours that day (completed sessions). */
-  const dailyLoadByWeekday = {};
+  let totalAssignments = 0;
+  let completedAssignments = 0;
+  let pendingAssignments = 0;
+  let inProgressAssignments = 0;
+  const chunkSize = 10;
 
-  sessionsSnap.forEach((doc) => {
-    totalSessions += 1;
-    const s = doc.data();
-
-    // Planned time applies to every scheduled session row.
-    totalPlannedHours += Number(s.plannedDuration) || 0;
-
-    // Actual time is only meaningful once a session is completed (actualDuration already excludes breaks).
-    if (s.status === "completed") {
-      completedSessions += 1;
-
-      let actualHours = 0;
-      if (Number.isFinite(Number(s.actualDuration))) {
-        actualHours = Number(s.actualDuration);
-      } else {
-        // Legacy: derive net study time from timestamps if actualDuration was not stored.
-        const start = toDate(s.startTime);
-        const end = toDate(s.endTime);
-        if (start && end && end >= start) {
-          const gross = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-          const breaks = Number(s.totalBreakTime) || 0;
-          actualHours = Math.max(0, gross - breaks);
-        }
-      }
-
-      totalActualHours += actualHours;
-
-      const bt = Number(s.totalBreakTime) || 0;
-      sumBreakTimeCompleted += bt;
-
-      const dayKey =
-        s.date || (toDate(s.startTime) ? toDate(s.startTime).toISOString().slice(0, 10) : null);
-      const wk = weekdayShortFromDateKey(dayKey);
-      if (wk) {
-        dailyLoadByWeekday[wk] = (dailyLoadByWeekday[wk] || 0) + actualHours;
-      }
-    }
-  });
-
-  const missedSessions = totalSessions - completedSessions;
-
-  const completionRate = safeDiv(totalActualHours, totalPlannedHours);
-  const consistencyScore = safeDiv(completedSessions, totalSessions);
-  const avgSessionLength = safeDiv(totalActualHours, completedSessions);
-  const avgBreakTime = safeDiv(sumBreakTimeCompleted, completedSessions);
-
-  const denomFocus = totalActualHours + sumBreakTimeCompleted;
-  const focusScore = safeDiv(totalActualHours, denomFocus);
-
-  const dailyValues = Object.values(dailyLoadByWeekday);
-  let maxDailyHours = 0;
-  let minDailyHours = 0;
-  if (dailyValues.length > 0) {
-    maxDailyHours = Math.max(...dailyValues);
-    minDailyHours = Math.min(...dailyValues);
+  for (let i = 0; i < courseIds.length; i += chunkSize) {
+    const chunk = courseIds.slice(i, i + chunkSize);
+    const snap = await db.collection("assignments").where("courseId", "in", chunk).get();
+    snap.forEach((doc) => {
+      totalAssignments += 1;
+      const st = normalizeAssignmentStatus(doc.data().status);
+      if (st === "completed") completedAssignments += 1;
+      else if (st === "in_progress") inProgressAssignments += 1;
+      else pendingAssignments += 1;
+    });
   }
 
-  const burnout = evaluateBurnout({
-    totalActualHours,
-    completionRate,
-    consistencyScore,
-    maxDailyHours,
+  const assignmentCompletionRate = round2(safeDiv(completedAssignments, totalAssignments));
+  const insight = evaluateAssignmentInsight({
+    totalAssignments,
+    completedAssignments,
+    pendingAssignments,
+    inProgressAssignments,
   });
 
   return {
-    totalPlannedHours: round2(totalPlannedHours),
-    totalActualHours: round2(totalActualHours),
-    completionRate: round2(completionRate),
-    totalSessions,
-    completedSessions,
-    missedSessions,
-    consistencyScore: round2(consistencyScore),
-    avgSessionLength: round2(avgSessionLength),
-    avgBreakTime: round2(avgBreakTime),
-    focusScore: round2(focusScore),
-    dailyLoadByWeekday: Object.fromEntries(
-      Object.entries(dailyLoadByWeekday).map(([k, v]) => [k, round2(v)])
-    ),
-    maxDailyHours: round2(maxDailyHours),
-    minDailyHours: round2(minDailyHours),
-    burnoutLevel: burnout.burnoutLevel,
-    reason: burnout.reason,
-    recommendation: burnout.recommendation,
+    courseCount,
+    totalAssignments,
+    completedAssignments,
+    pendingAssignments,
+    inProgressAssignments,
+    assignmentCompletionRate,
+    workloadLevel: insight.workloadLevel,
+    reason: insight.reason,
+    recommendation: insight.recommendation,
   };
 }
 

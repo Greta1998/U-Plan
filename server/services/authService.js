@@ -7,10 +7,7 @@ function getAuthAndDb() {
   const admin = getFirebaseAdmin();
   return { auth: admin.auth(), db: admin.firestore(), FieldValue: admin.firestore.FieldValue };
 }
-
-/**
- * Creates Firebase Auth user and profile in Firestore (users/{uid}).
- */
+/*Creates user and profile in Firestore.*/
 async function registerUser({ name, email, password }) {
   const { auth, db, FieldValue } = getAuthAndDb();
   let userRecord;

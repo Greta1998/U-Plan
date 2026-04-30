@@ -1,7 +1,7 @@
 const { getFirebaseAdmin } = require("../config/firebase");
 
 const ALLOWED_PRIORITY = new Set(["low", "medium", "high"]);
-const ALLOWED_STATUS = new Set(["pending", "completed"]);
+const ALLOWED_STATUS = new Set(["pending", "in_progress", "completed"]);
 
 function validateCreateAssignment(body) {
   const errors = [];
@@ -16,7 +16,7 @@ function validateCreateAssignment(body) {
   if (!deadline) errors.push("deadline is required");
   else if (Number.isNaN(Date.parse(deadline))) errors.push("deadline must be a valid ISO date string");
   if (!ALLOWED_PRIORITY.has(priority)) errors.push("priority must be one of: low, medium, high");
-  if (!ALLOWED_STATUS.has(status)) errors.push("status must be one of: pending, completed");
+  if (!ALLOWED_STATUS.has(status)) errors.push("status must be one of: pending, in_progress, completed");
 
   return { errors, courseId, title, deadline, priority, status };
 }
@@ -97,12 +97,20 @@ exports.getAssignmentsByCourse = async (req, res) => {
   }
 };
 
-exports.markAssignmentCompleted = async (req, res) => {
+exports.updateAssignmentStatus = async (req, res) => {
   const assignmentId = typeof req.params.assignmentId === "string" ? req.params.assignmentId.trim() : "";
+  const statusRaw = typeof req.body?.status === "string" ? req.body.status.trim().toLowerCase() : "";
   if (!assignmentId) {
     return res.status(400).json({
       success: false,
       error: "assignmentId is required",
+    });
+  }
+  if (!ALLOWED_STATUS.has(statusRaw)) {
+    return res.status(400).json({
+      success: false,
+      error: "Validation failed",
+      details: ["status must be one of: pending, in_progress, completed"],
     });
   }
 
@@ -120,13 +128,16 @@ exports.markAssignmentCompleted = async (req, res) => {
     }
 
     await assignmentRef.update({
-      status: "completed",
+      status: statusRaw,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return res.status(200).json({
       success: true,
-      message: "Assignment marked as completed",
+      data: {
+        assignmentId,
+        status: statusRaw,
+      },
     });
   } catch (err) {
     return res.status(500).json({
