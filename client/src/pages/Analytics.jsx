@@ -1,129 +1,147 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { analyticsApi } from "../lib/api";
+import { useToast } from "../context/ToastContext";
+
+function clampPercent(value) {
+  const n = Number(value) || 0;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
 
 export default function Analytics() {
   const { user } = useAuth();
-  const [d, setD] = useState(null);
-  const [err, setErr] = useState("");
+  const showToast = useToast();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let c = false;
+    let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
         const res = await analyticsApi.get(user.userId);
-        if (!c) setD(res.data);
+        if (!cancelled) setData(res.data || null);
       } catch (e) {
-        if (!c) setErr(e.message);
+        if (!cancelled) showToast("error", "Failed to load analytics", e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      c = true;
+      cancelled = true;
     };
-  }, [user.userId]);
+  }, [showToast, user.userId]);
 
-  if (err) return <div className="alert-box alert-error">{err}</div>;
-  if (!d) return <div className="empty-hint">Loading analytics…</div>;
-
-  const burnoutColor = d.burnoutLevel === "HIGH" ? "#dc2626" : d.burnoutLevel === "MEDIUM" ? "#f59e0b" : "#16a34a";
+  const completionPct = useMemo(() => clampPercent((data?.assignmentCompletionRate || 0) * 100), [data]);
+  const burnoutScore = useMemo(() => clampPercent((data?.pendingAssignments || 0) * 12), [data]);
+  const ringOffset = useMemo(() => 314 - (314 * burnoutScore) / 100, [burnoutScore]);
+  const workloadColor =
+    data?.workloadLevel === "HIGH" ? "#f59e0b" : data?.workloadLevel === "LOW" ? "#16a34a" : "#3b6ff0";
 
   return (
     <div>
       <div style={{ marginBottom: "24px" }}>
         <h1 className="page-heading">Analytics</h1>
-        <p className="page-sub">Live from GET /analytics/:userId</p>
+        <p className="page-sub">Your academic performance overview</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "24px" }}>
         <div className="card stat-card">
-          <div className="stat-label">Planned hours</div>
-          <div className="stat-value">
-            {d.totalPlannedHours}
-            <span style={{ fontSize: "16px", color: "#9ba0b0" }}>h</span>
-          </div>
+          <div className="stat-label">Assignments</div>
+          <div className="stat-value">{loading ? "…" : data?.totalAssignments ?? 0}</div>
+          <div className="stat-sub">Total tracked tasks</div>
         </div>
         <div className="card stat-card">
-          <div className="stat-label">Actual hours</div>
-          <div className="stat-value">
-            {d.totalActualHours}
-            <span style={{ fontSize: "16px", color: "#9ba0b0" }}>h</span>
-          </div>
-        </div>
-        <div className="card stat-card">
-          <div className="stat-label">Completion rate</div>
+          <div className="stat-label">Task completion</div>
           <div className="stat-value" style={{ color: "#16a34a" }}>
-            {(d.completionRate * 100).toFixed(0)}%
+            {loading ? "…" : `${completionPct.toFixed(0)}%`}
           </div>
+          <div className="stat-sub">Completed assignments</div>
         </div>
         <div className="card stat-card">
-          <div className="stat-label">Burnout</div>
-          <div className="stat-value" style={{ color: burnoutColor, fontSize: "22px" }}>
-            {d.burnoutLevel}
+          <div className="stat-label">Burnout level</div>
+          <div className="stat-value" style={{ color: workloadColor }}>
+            {loading ? "…" : data?.workloadLevel || "MEDIUM"}
           </div>
+          <div className="stat-sub">{loading ? "" : data?.reason}</div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
         <div className="card" style={{ padding: "20px" }}>
           <div className="section-title" style={{ marginBottom: "16px" }}>
-            Behaviour & focus
+            Burnout indicator
           </div>
-          <table>
-            <tbody>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Sessions</td>
-                <td style={{ textAlign: "right" }}>
-                  {d.totalSessions} ({d.completedSessions} completed, {d.missedSessions ?? d.totalSessions - d.completedSessions} missed)
-                </td>
-              </tr>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Consistency</td>
-                <td style={{ textAlign: "right" }}>{(d.consistencyScore * 100).toFixed(0)}%</td>
-              </tr>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Avg session length</td>
-                <td style={{ textAlign: "right" }}>{d.avgSessionLength}h</td>
-              </tr>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Avg break time</td>
-                <td style={{ textAlign: "right" }}>{d.avgBreakTime}h</td>
-              </tr>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Focus score</td>
-                <td style={{ textAlign: "right" }}>{(d.focusScore * 100).toFixed(0)}%</td>
-              </tr>
-              <tr>
-                <td style={{ color: "#9ba0b0" }}>Daily load (max / min)</td>
-                <td style={{ textAlign: "right" }}>
-                  {d.maxDailyHours}h / {d.minDailyHours}h
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+            <div className="burnout-wrap" style={{ padding: 0 }}>
+              <div className="burnout-ring">
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f0f2f8" strokeWidth="10" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke={workloadColor}
+                    strokeWidth="10"
+                    strokeDasharray="314"
+                    strokeDashoffset={ringOffset}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="burnout-label">
+                  <span className="burnout-score" style={{ color: workloadColor }}>
+                    {loading ? "…" : burnoutScore.toFixed(0)}
+                  </span>
+                  <span className="burnout-text">/ 100</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "13px", color: "#5a6080", marginBottom: "8px" }}>
+                <strong>Reason:</strong> {loading ? "Loading…" : data?.reason || "No insight yet"}
+              </p>
+              <div style={{ fontSize: "13px", color: "#5a6080" }}>
+                <strong>Recommendation:</strong> {loading ? "Please wait…" : data?.recommendation || "Keep tracking your work."}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="card" style={{ padding: "20px" }}>
           <div className="section-title" style={{ marginBottom: "16px" }}>
-            Burnout insight
+            Assignment progress
           </div>
-          <p style={{ fontSize: "14px", marginBottom: "8px" }}>
-            <strong>Reason:</strong> {d.reason}
-          </p>
-          <p style={{ fontSize: "13px", color: "#5a6080", marginBottom: "16px" }}>{d.recommendation}</p>
-          <div className="section-title" style={{ marginBottom: "8px" }}>
-            Actual hours by weekday
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {d.dailyLoadByWeekday && Object.keys(d.dailyLoadByWeekday).length === 0 ? (
-              <span style={{ fontSize: "13px", color: "#9ba0b0" }}>No completed sessions yet.</span>
-            ) : (
-              Object.entries(d.dailyLoadByWeekday || {}).map(([day, hrs]) => (
-                <div key={day} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                  <span>{day}</span>
-                  <span>{hrs}h</span>
-                </div>
-              ))
-            )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "5px" }}>
+                <span style={{ fontWeight: 500 }}>Completed</span>
+                <span style={{ color: "#16a34a", fontWeight: 500 }}>{loading ? "…" : data?.completedAssignments ?? 0}</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${completionPct}%`, background: "#16a34a" }} />
+              </div>
+            </div>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "5px" }}>
+                <span style={{ fontWeight: 500 }}>In progress</span>
+                <span style={{ color: "#3b6ff0", fontWeight: 500 }}>{loading ? "…" : data?.inProgressAssignments ?? 0}</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${clampPercent((data?.inProgressAssignments || 0) * 15)}%`, background: "#3b6ff0" }} />
+              </div>
+            </div>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "5px" }}>
+                <span style={{ fontWeight: 500 }}>Pending</span>
+                <span style={{ color: "#dc2626", fontWeight: 500 }}>{loading ? "…" : data?.pendingAssignments ?? 0}</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${clampPercent((data?.pendingAssignments || 0) * 15)}%`, background: "#dc2626" }} />
+              </div>
+            </div>
           </div>
         </div>
       </div>

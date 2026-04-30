@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { coursesApi } from "../lib/api";
+import { assignmentsApi, coursesApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 
 const gradients = [
@@ -20,12 +20,27 @@ export default function Courses() {
   const [courseName, setCourseName] = useState("");
   const [creditUnits, setCreditUnits] = useState(3);
   const [submitting, setSubmitting] = useState(false);
+  const [courseStats, setCourseStats] = useState({});
 
   async function load() {
     setLoading(true);
     try {
       const res = await coursesApi.list(user.userId);
-      setCourses(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setCourses(list);
+      const stats = {};
+      for (const course of list) {
+        const aRes = await assignmentsApi.byCourse(course.courseId);
+        const assignments = Array.isArray(aRes.data) ? aRes.data : [];
+        const completed = assignments.filter((a) => String(a.status || "").toLowerCase() === "completed").length;
+        const total = assignments.length;
+        stats[course.courseId] = {
+          completed,
+          total,
+          pct: total === 0 ? 0 : Math.round((completed / total) * 100),
+        };
+      }
+      setCourseStats(stats);
     } catch (e) {
       showToast("error", "Failed to load courses", e.message);
     } finally {
@@ -84,7 +99,7 @@ export default function Courses() {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "16px" }}>
         {courses.map((c, i) => (
           <div key={c.courseId || c.id} className="course-card">
             <div className="course-card-top" style={{ background: gradients[i % gradients.length] }}>
@@ -93,6 +108,21 @@ export default function Courses() {
             <div className="course-card-body">
               <div className="course-name">{c.courseName}</div>
               <div className="course-code">{c.creditUnits} credits</div>
+              <div className="progress-bar" style={{ marginBottom: "8px" }}>
+                <div className="progress-fill" style={{ width: `${courseStats[c.courseId]?.pct || 0}%`, background: "#3b6ff0" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9ba0b0", marginBottom: "10px" }}>
+                <span>{courseStats[c.courseId]?.pct || 0}% complete</span>
+                <span>
+                  {courseStats[c.courseId]?.completed || 0}/{courseStats[c.courseId]?.total || 0} assignments
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                <span className="badge badge-info">{c.creditUnits} Credits</span>
+                <span className={`badge ${(courseStats[c.courseId]?.pct || 0) >= 65 ? "badge-done" : "badge-pending"}`}>
+                  {(courseStats[c.courseId]?.pct || 0) >= 65 ? "On Track" : "Needs Work"}
+                </span>
+              </div>
               <div style={{ marginTop: "10px" }}>
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(c.courseId || c.id)}>
                   Delete

@@ -42,9 +42,12 @@ export const coursesApi = {
 export const assignmentsApi = {
   byCourse: (courseId) => api(`/assignments/${encodeURIComponent(courseId)}`),
   create: (payload) => api("/assignments", { method: "POST", body: payload }),
+  updateStatus: (assignmentId, status) =>
+    api(`/assignments/${encodeURIComponent(assignmentId)}`, { method: "PUT", body: { status } }),
 };
 
 export const scheduleApi = {
+  get: (userId) => api(`/schedule/user/${encodeURIComponent(userId)}`),
   generate: (userId) => api("/schedule/generate", { method: "POST", body: { userId } }),
 };
 

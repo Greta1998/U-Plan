@@ -6,8 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Schedule from "./pages/Schedule";
-import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
+import Analytics from "./pages/Analytics";
 
 function ProtectedLayout() {
   const { user } = useAuth();

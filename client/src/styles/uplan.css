@@ -130,3 +130,185 @@ tr:hover td { background: #fafbff; }
 .burnout-text { font-size: 11px; color: #9ba0b0; }
 
 .empty-hint { font-size: 13px; color: #9ba0b0; padding: 24px; text-align: center; }
+
+/* Weekly schedule grid (matches Documentation/student-planner-ui.html) */
+.sched-header {
+  background: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ba0b0;
+  text-align: center;
+  padding: 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.sched-time {
+  font-size: 11px;
+  color: #c0c5d8;
+  text-align: right;
+  border-right: 1px solid #e8eaf2;
+  background: #fff;
+  box-sizing: border-box;
+}
+.schedule-grid-corner {
+  border-right: 1px solid #e8eaf2;
+  border-bottom: 1px solid #e8eaf2;
+  min-height: 38px;
+}
+.schedule-grid-header {
+  display: grid;
+  grid-template-columns: 70px repeat(5, 1fr);
+  align-items: stretch;
+}
+.schedule-grid-body {
+  display: grid;
+  grid-template-columns: 70px repeat(5, 1fr);
+  border-top: none;
+}
+.schedule-time-gutter {
+  border-right: 1px solid #e8eaf2;
+  background: #fff;
+  flex-shrink: 0;
+}
+.schedule-day-column {
+  position: relative;
+  background: #fff;
+  border-left: 1px solid #f0f2f8;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.schedule-day-column--selected {
+  background: #fafbff;
+  box-shadow: inset 0 0 0 2px rgba(59, 111, 240, 0.35);
+}
+.sched-header--selected {
+  color: #3b6ff0 !important;
+  background: #f0f4ff !important;
+}
+.schedule-grid-card--scroll {
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+.sched-event {
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.schedule-day-column .sched-event--abs {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: flex-start;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.sched-event-title {
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sched-event-meta {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.schedule-day-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.schedule-day-pill {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  border: 1px solid #e8eaf2;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.schedule-day-pill:hover {
+  border-color: #b8cbff;
+  background: #fafbff;
+}
+.schedule-day-pill--active {
+  background: #3b6ff0;
+  border-color: #3b6ff0;
+  color: #fff;
+}
+.schedule-day-pill__dow {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ba0b0;
+  margin-bottom: 2px;
+}
+.schedule-day-pill--active .schedule-day-pill__dow {
+  color: rgba(255, 255, 255, 0.88);
+}
+.schedule-day-pill__num {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1d2e;
+}
+.schedule-day-pill--active .schedule-day-pill__num {
+  color: #fff;
+}
+
+@media print {
+  .sidebar,
+  .topbar,
+  .schedule-toolbar-actions {
+    display: none !important;
+  }
+  .app-content {
+    margin-left: 0 !important;
+  }
+  .page-content {
+    padding: 16px !important;
+  }
+}
+
+/* Assignments table (name, due date, status) */
+.assignments-filter {
+  width: auto;
+  font-size: 13px;
+  padding: 7px 32px 7px 12px;
+  cursor: pointer;
+  min-width: 140px;
+}
+.assignments-th-check {
+  width: 44px;
+  padding-left: 14px !important;
+}
+.assignments-th-status {
+  width: 200px;
+}
+.assignments-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b6ff0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.assignments-title--done {
+  text-decoration: line-through;
+  color: #9ba0b0 !important;
+}
+.assignments-row--done td {
+  color: #9ba0b0;
+}
+.assignments-status-select {
+  font-size: 12px;
+  padding: 4px 28px 4px 8px;
+  max-width: 180px;
+  width: 100%;
+}
