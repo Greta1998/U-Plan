@@ -32,9 +32,21 @@ app.use("/assignments", assignmentRoutes);
 app.use("/schedule", scheduleRoutes);
 app.use("/study-session", studySessionRoutes);
 app.use("/analytics", analyticsRoutes);
-app.use("/", routes);
+app.use("/api", routes);
 
-app.use((req, res) => {
+app.get("/*", (req, res, next) => {
+  if (
+    req.path.startsWith("/auth") ||
+    req.path.startsWith("/courses") ||
+    req.path.startsWith("/assignments") ||
+    req.path.startsWith("/schedule") ||
+    req.path.startsWith("/study-session") ||
+    req.path.startsWith("/analytics") ||
+    req.path.startsWith("/api")
+  ) {
+    return next();
+  }
+
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
