@@ -34,7 +34,7 @@ app.use("/study-session", studySessionRoutes);
 app.use("/analytics", analyticsRoutes);
 app.use("/", routes);
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
