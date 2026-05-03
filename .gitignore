@@ -1,0 +1,4 @@
+# GCP / Firebase key material — must never be committed (any folder)
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+*.pem
