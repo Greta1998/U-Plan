@@ -9,12 +9,14 @@ const scheduleRoutes = require("./routes/scheduleRoutes");
 const studySessionRoutes = require("./routes/studySessionRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const { initFirebase } = require("./config/firebase");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 try {
   initFirebase();
@@ -31,6 +33,10 @@ app.use("/schedule", scheduleRoutes);
 app.use("/study-session", studySessionRoutes);
 app.use("/analytics", analyticsRoutes);
 app.use("/", routes);
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 const server = app.listen(PORT, () => {
   console.log(`U-Plan API listening on http://localhost:${PORT}`);
