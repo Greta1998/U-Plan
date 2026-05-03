@@ -34,7 +34,7 @@ app.use("/study-session", studySessionRoutes);
 app.use("/analytics", analyticsRoutes);
 app.use("/api", routes);
 
-app.get("/*", (req, res, next) => {
+app.use((req, res, next) => {
   if (
     req.path.startsWith("/auth") ||
     req.path.startsWith("/courses") ||
