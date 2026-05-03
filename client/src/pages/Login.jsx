@@ -134,9 +134,6 @@ export default function Login() {
             </>
           )}
         </p>
-        <p style={{ textAlign: "center", fontSize: "12px", color: "#c0c5d8", marginTop: "12px" }}>
-          API: {import.meta.env.VITE_API_URL || "http://localhost:3000"}
-        </p>
       </div>
     </div>
   );

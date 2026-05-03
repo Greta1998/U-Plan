@@ -39,10 +39,23 @@ function getDayName(date) {
 
 function normalizePriority(priority) {
   const p = (priority || "").toLowerCase();
-  return PRIORITY_HOURS[p] ? p : "low";
+  return PRIORITY_HOURS[p] ? p : "medium";
 }
 
-async function fetchPendingAssignmentsForUser(userId) {
+function startOfToday() {
+  return startOfDay(new Date());
+}
+
+function isOverdueDeadline(deadline) {
+  const deadlineDate = Date.parse(deadline);
+  if (!Number.isFinite(deadlineDate)) return false;
+  return startOfDay(new Date(deadlineDate)).getTime() < startOfToday().getTime();
+}
+
+/**
+ * Non-completed assignments (pending or in progress) for scheduling.
+ */
+async function fetchActiveAssignmentsForUser(userId) {
   const admin = getFirebaseAdmin();
   const db = admin.firestore();
 
@@ -50,20 +63,20 @@ async function fetchPendingAssignmentsForUser(userId) {
   if (coursesSnap.empty) return [];
 
   const courseIds = coursesSnap.docs.map((doc) => doc.id);
-  const pendingAssignments = [];
+  const assignments = [];
 
   const chunkSize = 10;
   for (let i = 0; i < courseIds.length; i += chunkSize) {
     const chunk = courseIds.slice(i, i + chunkSize);
-    const assignmentSnap = await db
-      .collection("assignments")
-      .where("courseId", "in", chunk)
-      .where("status", "==", "pending")
-      .get();
+    const assignmentSnap = await db.collection("assignments").where("courseId", "in", chunk).get();
 
     assignmentSnap.forEach((doc) => {
       const data = doc.data();
-      pendingAssignments.push({
+      const st = String(data.status || "pending")
+        .trim()
+        .toLowerCase();
+      if (st === "completed") return;
+      assignments.push({
         assignmentId: doc.id,
         courseId: data.courseId,
         title: data.title,
@@ -73,13 +86,16 @@ async function fetchPendingAssignmentsForUser(userId) {
     });
   }
 
-  pendingAssignments.sort((a, b) => {
+  assignments.sort((a, b) => {
+    const aOver = isOverdueDeadline(a.deadline);
+    const bOver = isOverdueDeadline(b.deadline);
+    if (aOver !== bOver) return aOver ? -1 : 1;
     const aTime = Date.parse(a.deadline) || Number.MAX_SAFE_INTEGER;
     const bTime = Date.parse(b.deadline) || Number.MAX_SAFE_INTEGER;
     return aTime - bTime;
   });
 
-  return pendingAssignments;
+  return assignments;
 }
 
 /**
@@ -89,13 +105,16 @@ async function fetchPendingAssignmentsForUser(userId) {
 async function fetchAssignmentIdsWithActiveSessions(userId) {
   const admin = getFirebaseAdmin();
   const db = admin.firestore();
+  const todayKey = formatDateKey(startOfToday());
   const snap = await db.collection("studySessions").where("userId", "==", userId).get();
   const ids = new Set();
   snap.forEach((doc) => {
     const s = doc.data();
-    if (s.status === "planned" || s.status === "in-progress") {
-      if (s.assignmentId) ids.add(s.assignmentId);
-    }
+    if (s.status !== "planned" && s.status !== "in-progress") return;
+    if (!s.assignmentId) return;
+    // Past "planned" sessions no longer block new slots (lets overdue work reschedule).
+    if (s.status === "planned" && typeof s.date === "string" && s.date < todayKey) return;
+    ids.add(s.assignmentId);
   });
   return ids;
 }
@@ -147,13 +166,15 @@ async function loadExistingWeekStateIntoDays(userId, days) {
 function selectBestDay(days, deadline, assignmentId) {
   const deadlineDate = Date.parse(deadline);
   const validDeadline = Number.isFinite(deadlineDate);
+  const deadlineStart = validDeadline ? startOfDay(new Date(deadlineDate)).getTime() : null;
+  const overdue = validDeadline && deadlineStart < startOfToday().getTime();
 
   const eligible = days.filter((day) => {
     if (day.sessionCount >= MAX_SESSIONS_PER_DAY) return false;
     if (day.assignmentsToday.has(assignmentId)) return false;
     if (day.totalHours >= MAX_HOURS_PER_DAY) return false;
-    if (!validDeadline) return true;
-    return day.date.getTime() <= startOfDay(new Date(deadlineDate)).getTime();
+    if (!validDeadline || overdue) return true;
+    return day.date.getTime() <= deadlineStart;
   });
 
   const pool = eligible.length ? eligible : [];
@@ -169,7 +190,7 @@ function selectBestDay(days, deadline, assignmentId) {
 async function generateScheduleForUser(userId) {
   const admin = getFirebaseAdmin();
   const db = admin.firestore();
-  const pendingAssignments = await fetchPendingAssignmentsForUser(userId);
+  const pendingAssignments = await fetchActiveAssignmentsForUser(userId);
   const alreadyScheduled = await fetchAssignmentIdsWithActiveSessions(userId);
   const week = buildWeekWindow();
   await loadExistingWeekStateIntoDays(userId, week);

@@ -14,6 +14,28 @@ function normalizeAssignmentStatus(s) {
   return "pending";
 }
 
+/** API stores low | medium | high */
+function normalizePriority(p) {
+  const x = String(p || "")
+    .trim()
+    .toLowerCase();
+  if (x === "high") return "high";
+  if (x === "low") return "low";
+  return "medium";
+}
+
+function priorityBadgeClass(prio) {
+  if (prio === "high") return "badge badge-prio badge-prio-high";
+  if (prio === "low") return "badge badge-prio badge-prio-low";
+  return "badge badge-prio badge-prio-medium";
+}
+
+function priorityLabel(prio) {
+  if (prio === "high") return "High";
+  if (prio === "low") return "Low";
+  return "Medium";
+}
+
 function formatDueDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -165,6 +187,7 @@ export default function Assignments() {
                 <th className="assignments-th-check" aria-label="Select" />
                 <th>Assignment</th>
                 <th>Due date</th>
+                <th className="assignments-th-priority">Priority</th>
                 <th className="assignments-th-status">Status</th>
               </tr>
             </thead>
@@ -174,6 +197,8 @@ export default function Assignments() {
                 const done = st === "completed";
                 const overdue = isOverdue(a.deadline, a.status);
                 const busy = updatingId === a.assignmentId;
+                const prio = normalizePriority(a.priority);
+                const doneCellClass = done ? "assignments-cell--done" : undefined;
                 return (
                   <tr key={a.assignmentId} className={done ? "assignments-row--done" : undefined}>
                     <td>
@@ -186,17 +211,20 @@ export default function Assignments() {
                         aria-label={done ? "Mark as not completed" : "Mark as completed"}
                       />
                     </td>
-                    <td className={done ? "assignments-title--done" : undefined} style={{ fontWeight: 500 }}>
+                    <td className={done ? "assignments-title--done assignments-cell--done" : undefined} style={{ fontWeight: 500 }}>
                       {a.title}
                     </td>
                     <td
-                      className="assignments-due"
+                      className={`assignments-due${done ? " assignments-cell--done" : ""}`}
                       style={{
                         fontSize: "13px",
-                        color: overdue ? "#dc2626" : undefined,
+                        color: !done && overdue ? "#dc2626" : undefined,
                       }}
                     >
                       {formatDueDate(a.deadline)}
+                    </td>
+                    <td className="assignments-td-priority">
+                      <span className={`${priorityBadgeClass(prio)}${done ? " assignments-badge--done" : ""}`}>{priorityLabel(prio)}</span>
                     </td>
                     <td>
                       <select

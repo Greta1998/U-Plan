@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { scheduleApi } from "../lib/api";
+import { scheduleApi, coursesApi, assignmentsApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 
 const HOUR_START = 8;
-const PX_PER_HOUR = 48;
+const PX_PER_HOUR = 52;
 /** Visual gap between sessions on the same day (matches server: max 2 sessions/day with room for a break) */
 const REST_BETWEEN_SESSIONS_H = 1;
 
@@ -16,11 +16,6 @@ const EVENT_PALETTE = [
   { bg: "#fee2e2", color: "#b91c1c" },
   { bg: "#f1f5f9", color: "#475569" },
 ];
-
-function parseLocalDateKey(dateKey) {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 
 function formatDateKeyLocal(d) {
   const y = d.getFullYear();
@@ -51,13 +46,54 @@ function formatWeekRangeLabel(monday) {
   return `Week of ${start} – ${end}`;
 }
 
-function paletteForAssignmentId(id) {
+function paletteForAssignmentId(title, sessionId, assignmentId) {
   let h = 0;
-  const s = id || "";
+  const s = `${title || ""}:${assignmentId || ""}:${sessionId || ""}`;
   for (let i = 0; i < s.length; i += 1) {
     h = (h + s.charCodeAt(i) * (i + 1)) % 997;
   }
   return EVENT_PALETTE[h % EVENT_PALETTE.length];
+}
+
+function normalizeAssignmentStatus(s) {
+  const x = String(s || "")
+    .trim()
+    .toLowerCase();
+  return x === "completed" ? "completed" : "active";
+}
+
+function startOfTodayLocal() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+async function computeOverdueAssignable(userId, scheduleGrouped) {
+  const cRes = await coursesApi.list(userId);
+  const courseList = Array.isArray(cRes.data) ? cRes.data : [];
+  const todayKey = formatDateKeyLocal(new Date());
+  const assignmentIdsBlocked = new Set();
+  Object.values(scheduleGrouped || {}).forEach((sessions) => {
+    (sessions || []).forEach((sess) => {
+      if (sess.status !== "planned" && sess.status !== "in-progress") return;
+      if (!sess.assignmentId) return;
+      if (sess.status === "planned" && sess.date && sess.date < todayKey) return;
+      assignmentIdsBlocked.add(sess.assignmentId);
+    });
+  });
+  let overdue = 0;
+  const startToday = startOfTodayLocal().getTime();
+  for (const course of courseList) {
+    const aRes = await assignmentsApi.byCourse(course.courseId);
+    const rows = Array.isArray(aRes.data) ? aRes.data : [];
+    for (const a of rows) {
+      if (normalizeAssignmentStatus(a.status) === "completed") continue;
+      const dueTs = Date.parse(a.deadline);
+      if (!Number.isFinite(dueTs)) continue;
+      if (dueTs >= startToday) continue;
+      if (!assignmentIdsBlocked.has(a.assignmentId)) overdue += 1;
+    }
+  }
+  return overdue;
 }
 
 function layoutDaySessions(sessions) {
@@ -78,8 +114,22 @@ export default function Schedule() {
   const showToast = useToast();
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [grouped, setGrouped] = useState(null);
+  const [grouped, setGrouped] = useState({});
   const [selectedDayKey, setSelectedDayKey] = useState(null);
+  const [overdueAssignable, setOverdueAssignable] = useState(null);
+
+  const refreshOverdueAssignable = useCallback(
+    async (scheduleGroupedMap) => {
+      if (!user?.userId) return;
+      try {
+        const n = await computeOverdueAssignable(user.userId, scheduleGroupedMap);
+        setOverdueAssignable(n);
+      } catch {
+        setOverdueAssignable(null);
+      }
+    },
+    [user?.userId],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -87,12 +137,10 @@ export default function Schedule() {
       setLoadingInitial(true);
       try {
         const res = await scheduleApi.get(user.userId);
-        const data = res.data || {};
-        if (!cancelled && data && typeof data === "object" && Object.keys(data).length > 0) {
-          setGrouped(data);
-        }
+        const data = res?.data != null && typeof res.data === "object" ? res.data : {};
+        if (!cancelled) setGrouped(data);
       } catch {
-        if (!cancelled) setGrouped(null);
+        if (!cancelled) setGrouped({});
       } finally {
         if (!cancelled) setLoadingInitial(false);
       }
@@ -102,11 +150,10 @@ export default function Schedule() {
     };
   }, [user.userId]);
 
+  const weekAnchor = useMemo(() => new Date(), []);
+
   const weekInfo = useMemo(() => {
-    if (!grouped || !Object.keys(grouped).length) return null;
-    const keys = Object.keys(grouped).sort();
-    const first = parseLocalDateKey(keys[0]);
-    const monday = startOfWeekMonday(first);
+    const monday = startOfWeekMonday(weekAnchor);
     const weekDays = [];
     for (let i = 0; i < 7; i += 1) {
       const d = addCalendarDays(monday, i);
@@ -122,7 +169,11 @@ export default function Schedule() {
       weekDays,
       weekLabel: formatWeekRangeLabel(monday),
     };
-  }, [grouped]);
+  }, [weekAnchor]);
+
+  useEffect(() => {
+    refreshOverdueAssignable(grouped);
+  }, [refreshOverdueAssignable, grouped]);
 
   useEffect(() => {
     if (!weekInfo?.weekDays?.length) return;
@@ -132,7 +183,7 @@ export default function Schedule() {
   }, [weekInfo]);
 
   const gridModel = useMemo(() => {
-    if (!grouped || !weekInfo) {
+    if (!weekInfo) {
       return { columns: [[], [], [], [], []], displayEndHour: 17 };
     }
     const columns = [[], [], [], [], []];
@@ -180,9 +231,15 @@ export default function Schedule() {
     setGenerating(true);
     try {
       const res = await scheduleApi.generate(user.userId);
-      setGrouped(res.data || {});
+      const next = res?.data && typeof res.data === "object" ? res.data : {};
+      setGrouped(next);
       const n = res.meta?.generatedCount ?? 0;
-      showToast("success", "Schedule generated", n === 0 ? "No new sessions — pending work may already be planned." : `${n} new session(s) added.`);
+      showToast(
+        "success",
+        "Schedule generated",
+        n === 0 ? "No new sessions — work may already be planned (including overdue slots)." : `${n} new session(s) added.`,
+      );
+      await refreshOverdueAssignable(next);
     } catch (e) {
       showToast("error", "Schedule failed", e.message);
     } finally {
@@ -196,45 +253,51 @@ export default function Schedule() {
 
   const gridHeight = (gridModel.displayEndHour - HOUR_START) * PX_PER_HOUR;
 
+  const hasAnySessions = useMemo(() => Object.values(grouped).some((arr) => Array.isArray(arr) && arr.length > 0), [grouped]);
+
   return (
     <div className="schedule-page">
-      <div
-        className="schedule-page-header"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}
-      >
+      <div className="schedule-page-header">
         <div>
-          <h1 className="page-heading">Weekly schedule</h1>
-          {!loadingInitial && weekInfo ? <p className="page-sub">{weekInfo.weekLabel}</p> : null}
+          <h1 className="schedule-weekly-title">Weekly Schedule</h1>
+          {weekInfo ? <p className="schedule-week-range">{weekInfo.weekLabel}</p> : null}
         </div>
-        <div className="schedule-toolbar-actions" style={{ display: "flex", gap: "10px" }}>
-          <button type="button" className="btn btn-outline" onClick={exportPdf} disabled={!weekInfo || generating || loadingInitial}>
+        <div className="schedule-toolbar-actions">
+          <button type="button" className="btn btn-outline schedule-btn-export" onClick={exportPdf} disabled={!weekInfo || generating || loadingInitial}>
             Export PDF
           </button>
-          <button type="button" className="btn btn-primary" onClick={generate} disabled={generating || loadingInitial}>
+          <button type="button" className="btn btn-primary schedule-btn-generate" onClick={generate} disabled={generating || loadingInitial}>
             {generating ? (
               "Generating…"
             ) : (
               <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
+                <svg className="schedule-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M12 3l1.48 5.02L18 12l-4.52 3.98L12 21l-1.48-5.02L6 12l4.52-3.98L12 3z" />
                 </svg>
-                Generate schedule
+                Generate Schedule
               </>
             )}
           </button>
         </div>
       </div>
 
-      {loadingInitial && <div className="card empty-hint">Loading your schedule…</div>}
+      {overdueAssignable != null && overdueAssignable > 0 ? (
+        <div className="schedule-overdue-banner" role="status">
+          <div>
+            <strong>{overdueAssignable}</strong> overdue assignment{overdueAssignable !== 1 ? "s" : ""} need{overdueAssignable === 1 ? "s" : ""} time this week.
+            <span className="schedule-overdue-banner__hint"> Generate Schedule places them first (past planned blocks no longer block new slots).</span>
+          </div>
+          <button type="button" className="btn btn-primary btn-sm schedule-overdue-cta" onClick={generate} disabled={generating || loadingInitial}>
+            {generating ? "Working…" : "Reschedule overdue"}
+          </button>
+        </div>
+      ) : null}
 
-      {!loadingInitial && !weekInfo && (
-        <div className="card empty-hint">Click Generate to create planned study sessions from your pending assignments.</div>
-      )}
+      {loadingInitial && <div className="card empty-hint schedule-loading-hint">Loading your schedule…</div>}
 
       {weekInfo ? (
         <>
-          <div className="schedule-day-pills" role="tablist" aria-label="Week days">
+          <div className="schedule-day-pills schedule-day-pills--weekly" role="tablist" aria-label="Week days">
             {weekInfo.weekDays.map((d) => (
               <button
                 key={d.dateKey}
@@ -249,7 +312,10 @@ export default function Schedule() {
               </button>
             ))}
           </div>
-          <div className="card schedule-grid-card schedule-grid-card--scroll" style={{ overflow: "auto" }}>
+          <div className="card schedule-grid-card schedule-grid-card--scroll schedule-grid-card--mock">
+            {!hasAnySessions && !loadingInitial ? (
+              <div className="schedule-empty-overlay">No sessions yet — use Generate Schedule to build from your assignments.</div>
+            ) : null}
             <div className="schedule-grid-header">
               <div className="schedule-grid-corner" />
               {weekInfo.weekDays.slice(0, 5).map((d) => (
@@ -283,17 +349,17 @@ export default function Schedule() {
                     style={{
                       minHeight: gridHeight,
                       height: gridHeight,
-                      backgroundImage: `repeating-linear-gradient(to bottom, #fff 0, #fff ${PX_PER_HOUR - 1}px, #f0f2f8 ${PX_PER_HOUR - 1}px, #f0f2f8 ${PX_PER_HOUR}px)`,
+                      backgroundImage: `repeating-linear-gradient(to bottom, #fff 0, #fff ${PX_PER_HOUR - 1}px, #eceef5 ${PX_PER_HOUR - 1}px, #eceef5 ${PX_PER_HOUR}px)`,
                     }}
                   >
                     {col.map((s) => {
-                      const pal = paletteForAssignmentId(s.assignmentId);
+                      const pal = paletteForAssignmentId(s.assignmentTitle, s.sessionId, s.assignmentId);
                       const top = (s.startHour - HOUR_START) * PX_PER_HOUR;
                       const h = s.duration * PX_PER_HOUR;
                       return (
                         <div
                           key={s.sessionId}
-                          className="sched-event schedule-event--abs"
+                          className="sched-event sched-event--mock schedule-event--abs"
                           style={{
                             top,
                             height: h,
