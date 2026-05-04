@@ -24,10 +24,12 @@ export default function Login() {
     try {
       if (mode === "register") {
         const res = await authApi.register(name.trim(), email.trim(), password);
+        if (!res?.data) throw new Error("Unexpected response from server");
         login(res.data);
         showToast("success", "Account created", "Welcome to U-Plan.");
       } else {
         const res = await authApi.login(email.trim(), password);
+        if (!res?.data) throw new Error("Unexpected response from server");
         login(res.data);
         showToast("success", "Welcome back", res.data.name || "");
       }

@@ -16,7 +16,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
 
 try {
   initFirebase();
@@ -26,13 +25,23 @@ try {
   console.warn("Add GOOGLE_APPLICATION_CREDENTIALS to .env to enable Firebase.");
 }
 
+// JSON API — register before static so paths never collide with `public/` files.
 app.use("/auth", authRoutes);
 app.use("/courses", courseRoutes);
 app.use("/assignments", assignmentRoutes);
 app.use("/schedule", scheduleRoutes);
 app.use("/study-session", studySessionRoutes);
 app.use("/analytics", analyticsRoutes);
+// Same routes under `/api/*` so `VITE_API_URL=https://host.../api` matches the server.
+app.use("/api/auth", authRoutes);
+app.use("/api/courses", courseRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/study-session", studySessionRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api", routes);
+
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use((req, res, next) => {
   if (

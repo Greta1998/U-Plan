@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "https://your-backend.onrender.com/api";
+const BASE = import.meta.env.VITE_API_URL || "https://your-backend.onrender.com";
 /**
  * JSON API helper. Backend returns { success, data?, error?, details? }.
  */
@@ -14,9 +14,8 @@ export async function api(path, options = {}) {
 
   const text = await res.text();
 
-  // 🚨 detect HTML response (your current bug)
-  if (text.startsWith("<!doctype html>")) {
-    throw new Error("API returned HTML instead of JSON. Check your BASE URL or backend routes.");
+  if (/^\s*<!doctype html>/i.test(text)) {
+    throw new Error("API returned HTML instead of JSON. Check VITE_API_URL and server routes.");
   }
 
   let data;
