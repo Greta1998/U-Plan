@@ -1,17 +1,31 @@
-const BASE = import.meta.env.VITE_API_URL ;
-
+const BASE = import.meta.env.VITE_API_URL || "https://your-backend.onrender.com/api";
 /**
  * JSON API helper. Backend returns { success, data?, error?, details? }.
  */
 export async function api(path, options = {}) {
   const { method = "GET", body } = options;
   const headers = { "Content-Type": "application/json", ...options.headers };
+
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
+
+  const text = await res.text();
+
+  // 🚨 detect HTML response (your current bug)
+  if (text.startsWith("<!doctype html>")) {
+    throw new Error("API returned HTML instead of JSON. Check your BASE URL or backend routes.");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid JSON response from server");
+  }
+
   if (!res.ok) {
     const err = new Error(data.error || res.statusText || "Request failed");
     err.status = res.status;
@@ -19,6 +33,7 @@ export async function api(path, options = {}) {
     err.code = data.code;
     throw err;
   }
+
   return data;
 }
 
