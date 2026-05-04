@@ -1,13 +1,45 @@
+const fs = require("fs");
+const path = require("path");
 const admin = require("firebase-admin");
 
 let initialized = false;
 
-function initFirebase() {
-  if (!process.env.FIREBASE_CONFIG) {
-    throw new Error("FIREBASE_CONFIG is not set");
+/** Pasted JSON in env often has literal `\n` in private_key; OpenSSL needs real newlines. */
+function normalizePrivateKey(serviceAccount) {
+  const key = serviceAccount?.private_key;
+  if (typeof key === "string" && key.includes("\\n")) {
+    serviceAccount.private_key = key.replace(/\\n/g, "\n");
+  }
+  return serviceAccount;
+}
+
+function parseServiceAccountJson(raw) {
+  const parsed = JSON.parse(raw);
+  return normalizePrivateKey(parsed);
+}
+
+/** Service account: `FIREBASE_CONFIG` (JSON string, e.g. Render) or `GOOGLE_APPLICATION_CREDENTIALS` (file path). */
+function resolveServiceAccount() {
+  const inline = process.env.FIREBASE_CONFIG;
+  if (typeof inline === "string" && inline.trim()) {
+    return parseServiceAccountJson(inline.trim());
   }
 
-  const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
+  const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (typeof gac === "string" && gac.trim()) {
+    const filePath = path.isAbsolute(gac.trim()) ? gac.trim() : path.join(process.cwd(), gac.trim());
+    if (fs.existsSync(filePath)) {
+      return parseServiceAccountJson(fs.readFileSync(filePath, "utf8"));
+    }
+  }
+
+  throw new Error(
+    "Set FIREBASE_CONFIG to your Firebase service account JSON string, or GOOGLE_APPLICATION_CREDENTIALS to a JSON file path.",
+  );
+}
+
+function initFirebase() {
+  const serviceAccount = resolveServiceAccount();
 
   if (!admin.apps.length) {
     admin.initializeApp({

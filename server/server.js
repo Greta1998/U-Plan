@@ -22,7 +22,7 @@ try {
   console.log("Firebase Admin initialized.");
 } catch (err) {
   console.warn("Firebase Admin not initialized:", err.message);
-  console.warn("Add GOOGLE_APPLICATION_CREDENTIALS to .env to enable Firebase.");
+  console.warn("Set FIREBASE_CONFIG (JSON string) or GOOGLE_APPLICATION_CREDENTIALS (file path) to enable Firebase.");
 }
 
 // JSON API — register before static so paths never collide with `public/` files.
